@@ -54,31 +54,37 @@ def perform_merge(base_url, api_key, merge_data, log_file):
             }
             
             # Add the rest of the duplicates to the payload, excluding the target
-            for uuid in item["duplicates"]:
-                if uuid != target_uuid:
-                    payload["items"].append({"uuid": uuid, "systemName": "ExternalOrganization"})
+            duplicates = [uuid for uuid in item["duplicates"] if uuid != target_uuid]
+            for uuid in duplicates:
+                payload["items"].append({"uuid": uuid, "systemName": "ExternalOrganization"})
+
+            # Log the details of the merge operation
+            log.write(f"Preparing to merge the following UUIDs into target {target_uuid}:\n")
+            log.write(f"Target: {target_uuid}\n")
+            log.write(f"Duplicates: {', '.join(duplicates)}\n")
 
             # Send POST request to merge endpoint with error handling
             try:
                 response = requests.post(f"https://{base_url}/ws/api/external-organizations/merge", headers=headers, data=json.dumps(payload))
                 
                 if response.status_code == 200:
-                    log.write(f"Successfully merged into target {target_uuid} with duplicates {', '.join(item['duplicates'])}\n")
+                    log.write(f"SUCCESS: Merged into target {target_uuid} with duplicates {', '.join(duplicates)}\n\n")
                     print(f"Successfully merged UUIDs into target {target_uuid}.")
                 else:
                     # Log and continue on error
-                    log.write(f"Failed to merge into target {target_uuid}. Error: {response.status_code}, {response.text}\n")
+                    log.write(f"FAILED: Could not merge into target {target_uuid}. Error: {response.status_code}, {response.text}\n\n")
                     print(f"Failed to merge into target {target_uuid}. Error: {response.status_code}, {response.text}")
 
             except requests.exceptions.RequestException as e:
                 # Log any request errors and continue
-                log.write(f"Request failed for target {target_uuid}. Exception: {e}\n")
+                log.write(f"ERROR: Request failed for target {target_uuid}. Exception: {e}\n\n")
                 print(f"Request failed for target {target_uuid}. Exception: {e}")
 
             # Delay to avoid hitting the API too hard
             time.sleep(1)  # Adjust delay as needed
 
         log.write(f"Merge operation ended at {datetime.now()}\n\n")
+
 
 def main():
     base_url = input("Enter the base URL (e.g., vbn.aau.dk): ")
